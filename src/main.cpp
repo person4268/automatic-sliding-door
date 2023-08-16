@@ -1,43 +1,35 @@
 #include <Arduino.h>
 #include "HX711.h"
 
-int led = 13;
-int outlet_pin = 8;
+int OUTLET_TRIGGER_PIN = 8;
 
-int v_close_pin = 9;
-int v_open_pin = 10;
-int pv;
+int SOL_CLOSE_PIN = 9;
+int SOL_OPEN_PIN = 10;
+int currentVal;
 int LOADCELL_DOUT_PIN = 2;
 int LOADCELL_SCK_PIN = 3;
 HX711 scale;
 
 void setup() {                
-  Serial.begin(9600);
-  pinMode(led, OUTPUT);
-  pinMode(v_close_pin, OUTPUT);
-  pinMode(v_open_pin, OUTPUT);  
-  pinMode(outlet_pin, INPUT);
-  digitalWrite(v_close_pin, LOW);
-  digitalWrite(v_open_pin, LOW);
+  Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(SOL_CLOSE_PIN, OUTPUT);
+  pinMode(SOL_OPEN_PIN, OUTPUT);  
+  pinMode(OUTLET_TRIGGER_PIN, INPUT);
+  digitalWrite(SOL_CLOSE_PIN, LOW);
+  digitalWrite(SOL_OPEN_PIN, LOW);
   
-  pv = digitalRead(outlet_pin);
+  currentVal = digitalRead(OUTLET_TRIGGER_PIN);
 
   // load cell amplifier scaler 
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
 
 }
 
-
-void pulse(int pin){
-  digitalWrite(pin, HIGH);
-  delay(10000);
-  digitalWrite(pin, LOW);
-}
-
-
-void calibrate_scale() {
+void calibrate_scale(float known_weight_kg = 1.0) {
   if (scale.is_ready()) {
-    scale.set_scale();    
+    // Value the raw scale units gets divided by (defaults to 1)
+    scale.set_scale();
     Serial.println("Tare... remove any weights from the scale.");
     delay(5000);
     scale.tare();
@@ -55,19 +47,48 @@ void calibrate_scale() {
 }
 
 
+enum State { DONE, OPENING, CLOSING };
+
+State state = DONE;
+unsigned long timeStarted = millis();
+
 // the loop routine runs over and over again forever:
 void loop() {
-  int ov = digitalRead(outlet_pin);
-  digitalWrite(led, ov);
+
+  // just a simple edge trigger setup
+  int lastVal = digitalRead(OUTLET_TRIGGER_PIN);
+  digitalWrite(LED_BUILTIN, lastVal);
   
-  if(ov && !pv){
-    pulse(v_open_pin);
+  if (lastVal && !currentVal) { // if the trigger pin turns on, open door
+    state = OPENING;
   }
   
-  if(pv && !ov){
-    pulse(v_close_pin);
+  if (!lastVal && currentVal) { // if off, close door
+    state = CLOSING;
   }
   
-  
-  pv = ov;
+  currentVal = lastVal;
+  switch (state) {
+    case DONE:
+      digitalWrite(SOL_OPEN_PIN, LOW);
+      digitalWrite(SOL_CLOSE_PIN, LOW);
+      timeStarted = millis();
+      break;
+    case OPENING:
+      digitalWrite(SOL_OPEN_PIN, HIGH);
+      if (millis() - timeStarted > 10000) {
+        state = DONE;
+      }
+      break;
+    case CLOSING:
+      digitalWrite(SOL_CLOSE_PIN, HIGH);
+      if (millis() - timeStarted > 10000) {
+        state = DONE;
+      }
+      break;
+  }
+
+  if (state != DONE) {
+    // todo: read load cell, and set state to DONE if the rate of change is too high
+  }
 }
