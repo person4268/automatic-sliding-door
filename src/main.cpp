@@ -19,7 +19,9 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(SOL_CLOSE_PIN, OUTPUT);
   pinMode(SOL_OPEN_PIN, OUTPUT);  
+  pinMode(ERROR_LED, OUTPUT);
   pinMode(OUTLET_TRIGGER_PIN, INPUT);
+  
   digitalWrite(SOL_CLOSE_PIN, LOW);
   digitalWrite(SOL_OPEN_PIN, LOW);
   
