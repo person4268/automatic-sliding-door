@@ -1,24 +1,18 @@
 #include <Arduino.h>
+#include "HX711.h"
 
-/*
-  Blink
-  Turns on an LED on for one second, then off for one second, repeatedly.
- 
-  This example code is in the public domain.
- */
- 
-// Pin 13 has an LED connected on most Arduino boards.
-// give it a name:
 int led = 13;
 int outlet_pin = 8;
 
 int v_close_pin = 9;
 int v_open_pin = 10;
 int pv;
+int LOADCELL_DOUT_PIN = 2;
+int LOADCELL_SCK_PIN = 3;
+HX711 scale;
 
-// the setup routine runs once when you press reset:
 void setup() {                
-  // initialize the digital pin as an output.
+  Serial.begin(9600);
   pinMode(led, OUTPUT);
   pinMode(v_close_pin, OUTPUT);
   pinMode(v_open_pin, OUTPUT);  
@@ -27,13 +21,37 @@ void setup() {
   digitalWrite(v_open_pin, LOW);
   
   pv = digitalRead(outlet_pin);
+
+  // load cell amplifier scaler 
+  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+
 }
 
 
 void pulse(int pin){
   digitalWrite(pin, HIGH);
-  delay(300);
+  delay(10000);
   digitalWrite(pin, LOW);
+}
+
+
+void calibrate_scale() {
+  if (scale.is_ready()) {
+    scale.set_scale();    
+    Serial.println("Tare... remove any weights from the scale.");
+    delay(5000);
+    scale.tare();
+    Serial.println("Tare done...");
+    Serial.print("Place a known weight on the scale...");
+    delay(5000);
+    long reading = scale.get_units(10);  // get last 10 readings and average them I think
+    Serial.print("Result: ");
+    Serial.println(reading);
+  } 
+  else {
+    Serial.println("HX711 not found.");
+  }
+  delay(1000);
 }
 
 
