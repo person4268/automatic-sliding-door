@@ -10,9 +10,12 @@ int LOADCELL_DOUT_PIN = 2;
 int LOADCELL_SCK_PIN = 3;
 HX711 scale;
 
+long SCALE_DIVIDER = 1;
+long SCALE_OFFSET = 0;
+
 int ERROR_LED = LED_BUILTIN; // for now?
 
-float MAX_SCALE_CHANGE_PER_SECOND = 1.0; // ???/s
+float MAX_SCALE_CHANGE_PER_SECOND = 1.0; // (once calibrated should be kg/s)
 
 void setup() {                
   Serial.begin(115200);
@@ -21,7 +24,7 @@ void setup() {
   pinMode(SOL_OPEN_PIN, OUTPUT);  
   pinMode(ERROR_LED, OUTPUT);
   pinMode(OUTLET_TRIGGER_PIN, INPUT);
-  
+
   digitalWrite(SOL_CLOSE_PIN, LOW);
   digitalWrite(SOL_OPEN_PIN, LOW);
   
@@ -29,27 +32,35 @@ void setup() {
 
   // load cell amplifier scaler 
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+  scale.set_scale(SCALE_DIVIDER);
+  scale.set_offset(SCALE_OFFSET);
 
 }
 
 void calibrate_scale(float known_weight_kg = 1.0) {
   if (scale.is_ready()) {
     // Value the raw scale units gets divided by (defaults to 1)
-    scale.set_scale();
+    Serial.println("Current scale: " + String(scale.get_scale()));
     Serial.println("Tare... remove any weights from the scale.");
     delay(5000);
-    scale.tare();
-    Serial.println("Tare done...");
+    scale.tare(10);
+    Serial.println("Tare done..."); // print offset
+    Serial.println("Offset was " + String(scale.get_offset()));
     Serial.print("Place a known weight on the scale...");
     delay(5000);
     long reading = scale.get_units(10);  // get last 10 readings and average them I think
     Serial.print("Result: ");
+    reading = reading / known_weight_kg;
+    Serial.print("Result divided by weight: " + String(reading));
+    // Setting updated scale based on new reading
+    scale.set_scale(scale.get_scale() * reading); // not sure if this is right, but should be
     Serial.println(reading);
   } 
   else {
     Serial.println("HX711 not found.");
   }
-  delay(1000);
+  Serial.println("Going for another round in 3 seconds...");
+  delay(3000);
 }
 
 
